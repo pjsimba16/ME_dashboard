@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simulation Results Dashboard (2025–2030)</title>
+
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121a33;
+      --panel2:#0f1730;
+      --text:#e9ecf5;
+      --muted:#aab2d5;
+      --border:rgba(255,255,255,.10);
+
+      --plotGrid: rgba(255,255,255,0.08);
+      --plotZero: rgba(255,255,255,0.10);
+
+      --btnBg: rgba(122,162,255,0.22);
+      --btnBgHover: rgba(122,162,255,0.30);
+      --btnBorder: rgba(122,162,255,0.55);
+
+      --c1:#7aa2ff; --c2:#ffb86b; --c3:#55d7b7; --c4:#ff6b8b;
+      --c5:#b58bff; --c6:#ffd36b; --c7:#5fb3ff; --c8:#9be35a;
+    }
+
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: linear-gradient(180deg, #070b16, var(--bg));
+      color:var(--text);
+    }
+
+    header{
+      padding:16px 18px 10px 18px;
+      border-bottom:1px solid var(--border);
+      background: rgba(0,0,0,.2);
+      position: sticky;
+      top:0;
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    h1{margin:0 0 6px 0; font-size:18px; font-weight:850;}
+    .sub{margin:0; color:var(--muted); font-size:12px; line-height:1.35; max-width: 980px;}
+
+    .nav{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .nav a{
+      display:inline-flex;
+      align-items:center;
+      padding:9px 12px;
+      border-radius:10px;
+      background: var(--btnBg);
+      border:1px solid var(--btnBorder);
+      color: var(--text);
+      text-decoration:none;
+      font-weight:750;
+      transition:.12s ease;
+      white-space:nowrap;
+    }
+    .nav a:hover{ background: var(--btnBgHover); }
+    .nav a.active{ outline: 2px solid rgba(122,162,255,0.35); }
+
+    main{max-width:1300px; margin:0 auto; padding:18px;}
+
+    .grid{
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap:16px;
+      align-items:start;
+    }
+
+    .card{
+      background: rgba(18,26,51,.9);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+      box-shadow: 0 12px 28px rgba(0,0,0,.25);
+    }
+    .card h2{margin:0 0 10px 0; font-size:14px;}
+
+    label{font-size:12px; color:var(--muted); display:block; margin-bottom:6px;}
+    select, button{
+      width:100%;
+      border:1px solid var(--border);
+      background: rgba(15,23,48,.8);
+      color:var(--text);
+      border-radius:10px;
+      padding:9px 10px;
+      outline:none;
+    }
+
+    button{
+      cursor:pointer;
+      transition:.12s ease;
+      background: var(--btnBg);
+      border-color: var(--btnBorder);
+      font-weight: 750;
+    }
+    button:hover{ background: var(--btnBgHover); }
+    button.secondary{
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.18);
+      font-weight: 650;
+    }
+    button.secondary:hover{
+      background: rgba(255,255,255,0.10);
+      border-color: rgba(255,255,255,0.25);
+    }
+
+    .controls{ display:flex; flex-direction:column; gap:10px; }
+    .btnRow{ display:flex; gap:10px; }
+    .status{ font-size:12px; color:var(--muted); line-height:1.35; }
+
+    /* Regions checkbox list */
+    .regionsBox{
+      max-height: 240px;
+      overflow: auto;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:8px;
+      background: rgba(15,23,48,.55);
+    }
+    .regionItem{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:3px 2px;
+      font-size:12px;
+      color:var(--text);
+      line-height: 1.15;
+    }
+    .regionItem input{ transform: translateY(1px); }
+
+    .section{ margin-bottom:16px; }
+    .sectionHeader{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
+    .sectionHeader h3{ margin:0; font-size:14px; }
+    .helpText{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.35;
+      max-width: 860px;
+    }
+
+    .chartBox{
+      background: rgba(15,23,48,.55);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:10px;
+    }
+    .chartTopBar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:8px;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .pill{
+      font-size:11px;
+      color:var(--muted);
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:6px 10px;
+      background: rgba(0,0,0,.15);
+      white-space:nowrap;
+    }
+
+    .controlsRow{
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
+      flex-wrap:wrap;
+    }
+    .ctrl{ min-width: 200px; }
+
+    /* Small multiples grid */
+    .smGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    .smCard{
+      border:1px solid var(--border);
+      border-radius:14px;
+      background: rgba(0,0,0,.10);
+      padding:10px;
+    }
+    .smHeader{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      margin-bottom:8px;
+      flex-wrap:wrap;
+    }
+    .smTitle{
+      font-size:12px;
+      font-weight:850;
+      color:var(--text);
+    }
+    .smChart{
+      height:340px;
+      border-radius:12px;
+      background: rgba(15,23,48,.35);
+      border:1px solid var(--border);
+      padding:6px;
+    }
+
+    .chart.small{ height:360px; }
+
+    @media (max-width: 1020px){
+      .grid{ grid-template-columns:1fr; }
+      .regionsBox{ max-height:200px; }
+      .smGrid{ grid-template-columns: 1fr; }
+      .smChart{ height:320px; }
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="topbar">
+    <div>
+      <h1>Simulation Results (2025–2030)</h1>
+      <p class="sub">
+        Clean “scenario × variable” views. Region-level charts render <b>one chart per scenario</b> for the selected variable
+        (each chart shows 21 region lines). Sectoral output does the same per selected sector.
+      </p>
+    </div>
+
+    <div class="nav">
+      <a href="./ME_scenario_dashboard.html">Main dashboard</a>
+      <a href="./ME_shocks_stacked.html">Stacked shocks (2026)</a>
+      <a class="active" href="./ME_simulation_dashboard_2025_2030.html">Simulation (2025–2030)</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="grid">
+
+    <!-- LEFT: Global controls -->
+    <div class="card">
+      <h2>Global controls</h2>
+
+      <div class="controls">
+        <div>
+          <label for="snapScenarioSel">Scenario (used for Snapshot “single scenario” mode)</label>
+          <select id="snapScenarioSel"></select>
+        </div>
+
+        <div>
+          <label>Regions (applies to all charts; default: all)</label>
+          <div class="btnRow" style="margin-bottom:8px;">
+            <button id="selectAllRegionsBtn" type="button">Select all</button>
+            <button id="clearRegionsBtn" type="button" class="secondary">Clear</button>
+          </div>
+          <div id="regionsBox" class="regionsBox"></div>
+        </div>
+
+        <div class="btnRow">
+          <button id="refreshBtn" type="button">Refresh charts</button>
+        </div>
+
+        <div class="status" id="statusBox">Loading data…</div>
+
+        <hr style="border:0;border-top:1px solid var(--border);margin:10px 0;">
+
+        <div class="status">
+          <div style="font-weight:850; color:var(--text); margin-bottom:6px;">Notes</div>
+          <div style="margin-bottom:6px;">
+            <b>GDPR</b> displayed as <b>GDP Growth</b>. <b>INFL</b> as Inflation. <b>OUP</b> as sectoral Output.
+          </div>
+          <div>
+            CSV must be accessible at <code style="color:var(--text);">./data/SimulationResults_20260303.csv</code>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Sections -->
+    <div>
+
+      <!-- Section 1: Region-level small multiples -->
+      <div class="section card">
+        <div class="sectionHeader">
+          <div>
+            <h3>Region-level trajectories — one chart per scenario</h3>
+            <div class="helpText">
+              Select a variable; you’ll see 4 charts (one per scenario). Each chart plots 21 region lines over 2025–2030.
+            </div>
+          </div>
+
+          <div class="controlsRow">
+            <div class="ctrl">
+              <label for="regionVarSel">Variable</label>
+              <select id="regionVarSel"></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="chartBox">
+          <div class="chartTopBar">
+            <span class="pill" id="pillRegionSM">Variable: — | Regions: —</span>
+          </div>
+          <div class="smGrid" id="regionSMGrid"></div>
+        </div>
+      </div>
+
+      <!-- Section 2: Sectoral output small multiples -->
+      <div class="section card">
+        <div class="sectionHeader">
+          <div>
+            <h3>Sectoral output trajectories — one chart per scenario</h3>
+            <div class="helpText">
+              Select a sector; you’ll see 4 charts (one per scenario). Each chart plots 21 region lines over 2025–2030.
+            </div>
+          </div>
+
+          <div class="controlsRow">
+            <div class="ctrl">
+              <label for="sectorSel">Sector</label>
+              <select id="sectorSel"></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="chartBox">
+          <div class="chartTopBar">
+            <span class="pill" id="pillSectorSM">Variable: Output (OUP) | Sector: —</span>
+          </div>
+          <div class="smGrid" id="sectorSMGrid"></div>
+        </div>
+      </div>
+
+      <!-- Section 3: Snapshots -->
+      <div class="section card">
+        <div class="sectionHeader">
+          <div>
+            <h3>Snapshots — Bars by region</h3>
+            <div class="helpText">
+              Pick variable and year. Default is “single scenario” (uses the scenario in the left panel). You can also compare scenarios with grouped or stacked bars.
+            </div>
+          </div>
+
+          <div class="controlsRow">
+            <div class="ctrl">
+              <label for="snapVarSel">Variable</label>
+              <select id="snapVarSel"></select>
+            </div>
+
+            <div class="ctrl" id="snapSectorCtrl" style="display:none;">
+              <label for="snapSectorSel">Sector (OUP only)</label>
+              <select id="snapSectorSel"></select>
+            </div>
+
+            <div class="ctrl" style="min-width:140px;">
+              <label for="snapYearSel">Year</label>
+              <select id="snapYearSel"></select>
+            </div>
+
+            <div class="ctrl" style="min-width:240px;">
+              <label for="snapModeSel">Snapshot mode</label>
+              <select id="snapModeSel">
+                <option value="single" selected>Single scenario (scenario-first)</option>
+                <option value="grouped">Compare scenarios (grouped bars)</option>
+                <option value="stacked">Compare scenarios (stacked bars)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="chartBox">
+          <div class="chartTopBar">
+            <span class="pill" id="pillSnap">Scenario: — | Variable: — | Year: —</span>
+          </div>
+          <div id="chartSnap" class="chart small"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+  // ----------------------------
+  // Config
+  // ----------------------------
+  const DATA_PATH = "./data/SimulationResults_20260303.csv";
+
+  // Variable structure for this dataset
+  const REGION_LEVEL_VARS = ["GDPR", "INFL"];
+  const SECTOR_LEVEL_VARS = ["OUP"]; // sectoral output
+
+  // ----------------------------
+  // Helpers
+  // ----------------------------
+  function $(id){ return document.getElementById(id); }
+  function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function setStatus(msg){ $("statusBox").textContent = msg; }
+
+  function sortAlpha(arr){ return arr.slice().sort((a,b)=> String(a).localeCompare(String(b))); }
+  function sortNum(arr){ return arr.slice().sort((a,b)=> Number(a)-Number(b)); }
+  function safeNum(x){ const n = Number(x); return Number.isFinite(n) ? n : null; }
+
+  function displayVar(v){
+    if (v === "GDPR") return "GDP Growth (GDPR)";
+    if (v === "INFL") return "Inflation (INFL)";
+    if (v === "OUP")  return "Output (OUP)";
+    return v;
+  }
+
+  // Regions checkbox list
+  function getSelectedRegions(){
+    return Array.from(document.querySelectorAll('#regionsBox input[type="checkbox"]:checked'))
+      .map(cb => cb.value);
+  }
+  function setAllRegionsChecked(flag){
+    document.querySelectorAll('#regionsBox input[type="checkbox"]').forEach(cb => cb.checked = flag);
+  }
+
+  function normalizeSector(seRaw){
+    if (seRaw === null || seRaw === undefined) return "";
+    const s = String(seRaw).trim();
+    if (!s) return "";
+    const low = s.toLowerCase();
+    if (low === "nan" || low === "null" || low === "none") return "";
+    return s;
+  }
+
+  // ----------------------------
+  // Data stores
+  // ----------------------------
+  const meta = {
+    scenarios: new Set(),
+    regions: new Set(),
+    sectors: new Set(),
+    years: new Set(),
+    unitsByVar: new Map(),
+  };
+
+  const regionVal = new Map(); // sc||var||region||year -> val
+  const sectorVal = new Map(); // sc||var||region||sector||year -> val
+  const keyR = (sc, va, rg, yr) => `${sc}||${va}||${rg}||${yr}`;
+  const keyO = (sc, va, rg, se, yr) => `${sc}||${va}||${rg}||${se}||${yr}`;
+
+  function ingestWideRows(rows){
+    let yearCols = null;
+
+    for (const r of rows){
+      if (!r) continue;
+
+      const sc = String(r.Scenario ?? "").trim();
+      const va = String(r.Variable ?? "").trim();
+      const rg = String(r.Region ?? "").trim();
+      const un = String(r.Units ?? "").trim();
+      const se = normalizeSector(r.Sector);
+
+      if (!sc || !va || !rg) continue;
+
+      if (!yearCols){
+        yearCols = Object.keys(r).filter(k => /^\d{4}$/.test(k));
+      }
+
+      meta.scenarios.add(sc);
+      meta.regions.add(rg);
+      if (se) meta.sectors.add(se);
+      if (!meta.unitsByVar.has(va)) meta.unitsByVar.set(va, un);
+
+      for (const yc of yearCols){
+        const yr = safeNum(yc);
+        const val = safeNum(r[yc]);
+        if (yr === null || val === null) continue;
+
+        meta.years.add(yr);
+
+        if (SECTOR_LEVEL_VARS.includes(va)){
+          if (!se) continue;
+          sectorVal.set(keyO(sc, va, rg, se, yr), val);
+        } else if (REGION_LEVEL_VARS.includes(va)){
+          regionVal.set(keyR(sc, va, rg, yr), val);
+        }
+      }
+    }
+  }
+
+  // ----------------------------
+  // Plotly layout
+  // ----------------------------
+  function baseLayout(yUnit){
+    return {
+      title: {text:""},
+      paper_bgcolor: "rgba(0,0,0,0)",
+      plot_bgcolor: "rgba(0,0,0,0)",
+      margin: {l: 52, r: 14, t: 10, b: 44},
+      xaxis: {
+        gridcolor: cssVar('--plotGrid'),
+        zerolinecolor: cssVar('--plotZero'),
+        tickfont: {color: cssVar('--muted')},
+      },
+      yaxis: {
+        title: {text: yUnit || "", font:{color: cssVar('--muted'), size: 10}},
+        gridcolor: cssVar('--plotGrid'),
+        zerolinecolor: cssVar('--plotZero'),
+        tickfont: {color: cssVar('--muted')},
+      },
+      legend: {
+        font:{color: cssVar('--muted'), size: 10},
+        bgcolor: "rgba(0,0,0,0)",
+        borderwidth: 0,
+        orientation: "h",
+        yanchor: "bottom",
+        y: 1.04,
+        xanchor: "left",
+        x: 0
+      },
+      hovermode: "x unified",
+      colorway: [cssVar('--c1'), cssVar('--c2'), cssVar('--c3'), cssVar('--c4'), cssVar('--c5'), cssVar('--c6'), cssVar('--c7'), cssVar('--c8')]
+    };
+  }
+
+  // ----------------------------
+  // UI population
+  // ----------------------------
+  function populateControls(){
+    const scenarios = sortAlpha(Array.from(meta.scenarios));
+    const regions = sortAlpha(Array.from(meta.regions));
+    const sectors = sortAlpha(Array.from(meta.sectors));
+    const years = sortNum(Array.from(meta.years));
+
+    // Snapshot scenario selector
+    $("snapScenarioSel").innerHTML = scenarios.map(s => `<option value="${s}">${s}</option>`).join("");
+
+    // Region-level variable selector
+    $("regionVarSel").innerHTML = REGION_LEVEL_VARS.map(v => `<option value="${v}">${displayVar(v)}</option>`).join("");
+
+    // Sector selector (OUP)
+    $("sectorSel").innerHTML = sectors.map(s => `<option value="${s}">${s}</option>`).join("");
+
+    // Snapshot controls
+    $("snapVarSel").innerHTML = [...REGION_LEVEL_VARS, ...SECTOR_LEVEL_VARS]
+      .filter((v, i, arr) => arr.indexOf(v) === i)
+      .map(v => `<option value="${v}">${displayVar(v)}</option>`).join("");
+
+    $("snapSectorSel").innerHTML = sectors.map(s => `<option value="${s}">${s}</option>`).join("");
+    $("snapYearSel").innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join("");
+
+    // Regions checklist
+    $("regionsBox").innerHTML = regions.map(r => `
+      <label class="regionItem">
+        <input type="checkbox" value="${r}" checked />
+        <span>${r}</span>
+      </label>
+    `).join("");
+
+    // Defaults
+    if (scenarios.length) $("snapScenarioSel").value = scenarios[0];
+    $("regionVarSel").value = REGION_LEVEL_VARS.includes("GDPR") ? "GDPR" : REGION_LEVEL_VARS[0];
+
+    if (sectors.length) $("sectorSel").value = sectors[0];
+
+    $("snapVarSel").value = "GDPR";
+    if (years.includes(2026)) $("snapYearSel").value = "2026";
+    if (sectors.length) $("snapSectorSel").value = sectors[0];
+
+    updateSnapshotSectorVisibility();
+
+    // Render small-multiple containers (depends on scenarios)
+    renderSmallMultipleContainers();
+  }
+
+  function updateSnapshotSectorVisibility(){
+    const v = $("snapVarSel").value;
+    $("snapSectorCtrl").style.display = SECTOR_LEVEL_VARS.includes(v) ? "" : "none";
+  }
+
+  // ----------------------------
+  // Small multiple containers
+  // ----------------------------
+  function renderSmallMultipleContainers(){
+    const scenarios = sortAlpha(Array.from(meta.scenarios));
+
+    // Region-level small multiples
+    const regionGrid = $("regionSMGrid");
+    regionGrid.innerHTML = "";
+    for (const sc of scenarios){
+      const card = document.createElement("div");
+      card.className = "smCard";
+
+      const header = document.createElement("div");
+      header.className = "smHeader";
+
+      const title = document.createElement("div");
+      title.className = "smTitle";
+      title.textContent = `Scenario ${sc}`;
+
+      const pill = document.createElement("div");
+      pill.className = "pill";
+      pill.textContent = "Regions as lines";
+
+      header.appendChild(title);
+      header.appendChild(pill);
+
+      const chart = document.createElement("div");
+      chart.className = "smChart";
+      chart.id = `region_sm_${sc}`;
+
+      card.appendChild(header);
+      card.appendChild(chart);
+      regionGrid.appendChild(card);
+    }
+
+    // Sector-level small multiples
+    const sectorGrid = $("sectorSMGrid");
+    sectorGrid.innerHTML = "";
+    for (const sc of scenarios){
+      const card = document.createElement("div");
+      card.className = "smCard";
+
+      const header = document.createElement("div");
+      header.className = "smHeader";
+
+      const title = document.createElement("div");
+      title.className = "smTitle";
+      title.textContent = `Scenario ${sc}`;
+
+      const pill = document.createElement("div");
+      pill.className = "pill";
+      pill.textContent = "Regions as lines";
+
+      header.appendChild(title);
+      header.appendChild(pill);
+
+      const chart = document.createElement("div");
+      chart.className = "smChart";
+      chart.id = `sector_sm_${sc}`;
+
+      card.appendChild(header);
+      card.appendChild(chart);
+      sectorGrid.appendChild(card);
+    }
+  }
+
+  // ----------------------------
+  // Chart builders
+  // ----------------------------
+  function buildRegionSmallMultiples(){
+    const va = $("regionVarSel").value;
+    const regions = getSelectedRegions();
+    const years = sortNum(Array.from(meta.years));
+    const scenarios = sortAlpha(Array.from(meta.scenarios));
+    const unit = meta.unitsByVar.get(va) || "";
+
+    $("pillRegionSM").textContent = `Variable: ${displayVar(va)} | Regions selected: ${regions.length}`;
+
+    for (const sc of scenarios){
+      const traces = regions.map(rg => {
+        const y = years.map(yr => {
+          const v = regionVal.get(keyR(sc, va, rg, yr));
+          return (v === undefined) ? null : v;
+        });
+        return {
+          x: years, y,
+          mode: "lines+markers",
+          line: {width: 1.6},
+          marker: {size: 4},
+          name: rg,
+          hovertemplate: `<b>${rg}</b><br>Scenario=${sc}<br>Year=%{x}<br>Value=%{y:.4f}<extra></extra>`
+        };
+      });
+
+      const layout = baseLayout(unit);
+      Plotly.react(`region_sm_${sc}`, traces, layout, {responsive:true, displayModeBar:true});
+    }
+  }
+
+  function buildSectorSmallMultiples(){
+    const se = $("sectorSel").value;
+    const va = "OUP";
+    const regions = getSelectedRegions();
+    const years = sortNum(Array.from(meta.years));
+    const scenarios = sortAlpha(Array.from(meta.scenarios));
+    const unit = meta.unitsByVar.get(va) || "";
+
+    $("pillSectorSM").textContent = `Variable: ${displayVar(va)} | Sector: ${se}`;
+
+    for (const sc of scenarios){
+      const traces = regions.map(rg => {
+        const y = years.map(yr => {
+          const v = sectorVal.get(keyO(sc, va, rg, se, yr));
+          return (v === undefined) ? null : v;
+        });
+        return {
+          x: years, y,
+          mode: "lines+markers",
+          line: {width: 1.6},
+          marker: {size: 4},
+          name: rg,
+          hovertemplate: `<b>${rg}</b><br>Scenario=${sc}<br>Sector=${se}<br>Year=%{x}<br>Value=%{y:.4f}<extra></extra>`
+        };
+      });
+
+      const layout = baseLayout(unit);
+      Plotly.react(`sector_sm_${sc}`, traces, layout, {responsive:true, displayModeBar:true});
+    }
+  }
+
+  function buildSnapshot(){
+    const sc = $("snapScenarioSel").value;
+    const va = $("snapVarSel").value;
+    const yr = Number($("snapYearSel").value);
+    const mode = $("snapModeSel").value;
+    const regions = getSelectedRegions();
+    const unit = meta.unitsByVar.get(va) || "";
+
+    const needsSector = SECTOR_LEVEL_VARS.includes(va);
+    const se = needsSector ? $("snapSectorSel").value : "";
+
+    const scenarios = sortAlpha(Array.from(meta.scenarios));
+    let traces = [];
+    const layout = baseLayout(unit);
+
+    layout.hovermode = "closest";
+    layout.margin.b = 70;
+    layout.xaxis.tickangle = -35;
+    layout.xaxis.automargin = true;
+
+    if (mode === "single"){
+      const y = regions.map(rg => {
+        if (needsSector){
+          const v = sectorVal.get(keyO(sc, va, rg, se, yr));
+          return (v === undefined) ? null : v;
+        } else {
+          const v = regionVal.get(keyR(sc, va, rg, yr));
+          return (v === undefined) ? null : v;
+        }
+      });
+
+      traces = [{
+        type: "bar",
+        x: regions, y,
+        name: sc,
+        hovertemplate: `<b>%{x}</b><br>Scenario=${sc}<br>Year=${yr}<br>Value=%{y:.4f}<extra></extra>`
+      }];
+
+      layout.barmode = "group";
+    } else {
+      traces = scenarios.map(s => {
+        const y = regions.map(rg => {
+          if (needsSector){
+            const v = sectorVal.get(keyO(s, va, rg, se, yr));
+            return (v === undefined) ? 0 : v;
+          } else {
+            const v = regionVal.get(keyR(s, va, rg, yr));
+            return (v === undefined) ? 0 : v;
+          }
+        });
+        return {
+          type: "bar",
+          x: regions, y,
+          name: s,
+          hovertemplate: `<b>%{x}</b><br>Scenario=${s}<br>Year=${yr}<br>Value=%{y:.4f}<extra></extra>`
+        };
+      });
+
+      layout.barmode = (mode === "stacked") ? "relative" : "group";
+    }
+
+    Plotly.react("chartSnap", traces, layout, {responsive:true, displayModeBar:true});
+
+    const parts = [];
+    parts.push(`Scenario: ${sc}`);
+    parts.push(`Variable: ${displayVar(va)}`);
+    if (needsSector) parts.push(`Sector: ${se}`);
+    parts.push(`Year: ${yr}`);
+    if (mode !== "single") parts.push(`Mode: ${mode}`);
+    $("pillSnap").textContent = parts.join(" | ");
+  }
+
+  function refreshAll(){
+    buildRegionSmallMultiples();
+    buildSectorSmallMultiples();
+    buildSnapshot();
+  }
+
+  // ----------------------------
+  // Events
+  // ----------------------------
+  function bindUI(){
+    $("selectAllRegionsBtn").addEventListener("click", () => { setAllRegionsChecked(true); refreshAll(); });
+    $("clearRegionsBtn").addEventListener("click", () => { setAllRegionsChecked(false); refreshAll(); });
+    $("regionsBox").addEventListener("change", () => refreshAll());
+    $("refreshBtn").addEventListener("click", () => refreshAll());
+
+    const ids = [
+      "regionVarSel",
+      "sectorSel",
+      "snapScenarioSel",
+      "snapVarSel",
+      "snapSectorSel",
+      "snapYearSel",
+      "snapModeSel"
+    ];
+
+    ids.forEach(id => $(id).addEventListener("change", () => {
+      if (id === "snapVarSel") updateSnapshotSectorVisibility();
+      refreshAll();
+    }));
+  }
+
+  // ----------------------------
+  // Load CSV
+  // ----------------------------
+  function loadData(){
+    setStatus(`Loading CSV from: ${DATA_PATH}`);
+    let rowCount = 0;
+
+    Papa.parse(DATA_PATH, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      worker: false,
+      chunkSize: 1024 * 1024,
+      chunk: function(results){
+        const rows = results.data || [];
+        ingestWideRows(rows);
+        rowCount += rows.length;
+        if (rowCount % 2000 < rows.length){
+          setStatus(`Parsing… ${rowCount.toLocaleString()} rows`);
+        }
+      },
+      complete: function(){
+        setStatus(`Loaded. Scenarios=${meta.scenarios.size}, Regions=${meta.regions.size}, Sectors=${meta.sectors.size}, Years=${meta.years.size}.`);
+        populateControls();
+        bindUI();
+        refreshAll();
+      },
+      error: function(err){
+        console.error(err);
+        setStatus("Failed to load CSV. Check path ./data/SimulationResults_20260303.csv and run via Live Server.");
+      }
+    });
+  }
+
+  loadData();
+</script>
+</body>
+</html>
