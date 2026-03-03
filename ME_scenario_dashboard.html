@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ME Scenario Dashboard</title>
+
+  <!-- Plotly (charts) -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+
+  <!-- PapaParse (fast CSV parsing) -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root{
+      /* =========================
+         THEME (edit these freely)
+         ========================= */
+      --bg:#0b1020;
+      --panel:#121a33;
+      --panel2:#0f1730;
+      --text:#e9ecf5;
+      --muted:#aab2d5;
+      --border:rgba(255,255,255,.10);
+      --accent:#7aa2ff;
+
+      --plotGrid: rgba(255,255,255,0.08);
+      --plotZero: rgba(255,255,255,0.10);
+      --bandFill: rgba(255,255,255,0.08);
+
+      /* Optional plotly colorway (line colors) */
+      --c1:#7aa2ff;
+      --c2:#ffb86b;
+      --c3:#55d7b7;
+      --c4:#ff6b8b;
+      --c5:#b58bff;
+      --c6:#ffd36b;
+      --c7:#5fb3ff;
+      --c8:#9be35a;
+
+      /* Button styling */
+      --btnBg: rgba(122,162,255,0.22);
+      --btnBgHover: rgba(122,162,255,0.30);
+      --btnBorder: rgba(122,162,255,0.55);
+      --btnText: var(--text);
+      --dangerBg: rgba(255,107,139,0.18);
+      --dangerBorder: rgba(255,107,139,0.55);
+
+      --bg:#12111a;
+      --panel:#1b1826;
+      --panel2:#171423;
+      --text:#fff2e6;
+      --muted:#e2c8b3;
+      --border:rgba(255,242,230,.12);
+      --accent:#ff8a5b;
+
+      --btnBg: rgba(255,138,91,0.20);
+      --btnBgHover: rgba(255,138,91,0.30);
+      --btnBorder: rgba(255,138,91,0.60);
+
+      --c1:#ff8a5b; --c2:#ffd166; --c3:#06d6a0; --c4:#ef476f;
+      --c5:#a78bfa; --c6:#fca311; --c7:#4cc9f0; --c8:#8ecae6;
+    }
+
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: linear-gradient(180deg, #070b16, var(--bg));
+      color:var(--text);
+    }
+    header{
+      padding:18px 18px 8px 18px;
+      border-bottom:1px solid var(--border);
+      background: rgba(0,0,0,.2);
+      position: sticky;
+      top:0;
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+    h1{margin:0 0 6px 0; font-size:18px; font-weight:700;}
+    .sub{margin:0; color:var(--muted); font-size:12px;}
+    main{max-width:1300px; margin:0 auto; padding:18px;}
+    .grid{
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap:16px;
+      align-items:start;
+    }
+    .card{
+      background: rgba(18,26,51,.9);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+      box-shadow: 0 12px 28px rgba(0,0,0,.25);
+    }
+    .card h2{margin:0 0 10px 0; font-size:14px;}
+    .controls{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    label{font-size:12px; color:var(--muted); display:block; margin-bottom:6px;}
+    select, button, input[type="number"]{
+      width:100%;
+      border:1px solid var(--border);
+      background: rgba(15,23,48,.8);
+      color:var(--text);
+      border-radius:10px;
+      padding:9px 10px;
+      outline:none;
+    }
+
+    /* Buttons: more obvious */
+    button{
+      cursor:pointer;
+      transition:.12s ease;
+      background: var(--btnBg);
+      border-color: var(--btnBorder);
+      color: var(--btnText);
+      font-weight: 650;
+    }
+    button:hover{ background: var(--btnBgHover); }
+    button:active{ transform: translateY(1px); }
+
+    button.secondary{
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.18);
+      font-weight: 600;
+    }
+    button.secondary:hover{
+      background: rgba(255,255,255,0.10);
+      border-color: rgba(255,255,255,0.25);
+    }
+    button.danger{
+      background: var(--dangerBg);
+      border-color: var(--dangerBorder);
+      font-weight: 650;
+    }
+    button.danger:hover{
+      background: rgba(255,107,139,0.26);
+    }
+
+    .btnRow{
+      display:flex;
+      gap:10px;
+    }
+    .status{font-size:12px; color:var(--muted); line-height:1.4;}
+
+    .section{margin-bottom:16px;}
+    .sectionHeader{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:10px;
+      flex-wrap:wrap;
+    }
+    .sectionHeader h3{margin:0; font-size:14px;}
+    .helpText{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.35;
+      max-width: 760px;
+    }
+    .chartBox{
+      background: rgba(15,23,48,.55);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:10px;
+    }
+    .chart{height:420px;}
+    .chart.small{height:360px;}
+    .pill{
+      font-size:11px;
+      color:var(--muted);
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:6px 10px;
+      background: rgba(0,0,0,.15);
+      white-space:nowrap;
+    }
+    .chartTopBar{
+      display:flex;
+      justify-content:flex-end;
+      align-items:center;
+      margin-bottom:8px;
+    }
+
+    /* Controls row inside sections (keeps checkbox aligned with select) */
+    .controlsRow{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+    .ctrl{
+      min-width: 180px;
+    }
+    .ctrl label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    .labelSpacer{
+      height: calc(12px * 1.2 + 6px); /* label font-size * line-height + margin-bottom */
+    }
+
+    /* Checkbox control aligned to selects */
+    .chkInlineAligned{
+      width: 100%;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:9px 10px;  /* match select padding */
+      border:1px solid var(--border);
+      border-radius:10px;
+      background: rgba(15,23,48,.55);
+      color:var(--text);
+      font-size:12px;
+      user-select:none;
+      white-space:nowrap;
+    }
+
+    /* Regions checkbox list: tighter spacing */
+    .regionsBox{
+      max-height: 240px;
+      overflow: auto;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:8px; /* slightly tighter */
+      background: rgba(15,23,48,.55);
+    }
+    .regionItem{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:3px 2px; /* tighter row spacing */
+      font-size:12px;
+      color:var(--text);
+      line-height: 1.15; /* tighter */
+    }
+    .regionItem input{ transform: translateY(1px); }
+
+    /* Snapshot list */
+    .snapList{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      width:100%;
+    }
+    .snapCard{
+      border:1px solid var(--border);
+      border-radius:14px;
+      background: rgba(15,23,48,.40);
+      padding:10px;
+    }
+    .snapHeader{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+      flex-wrap:wrap;
+    }
+    .snapTitle{
+      font-size:12px;
+      color: var(--text);
+      font-weight: 750;
+    }
+    .snapActions{
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .snapChart{
+      height:360px;
+    }
+
+    @media (max-width: 1020px){
+      .grid{grid-template-columns:1fr;}
+      .regionsBox{max-height:200px;}
+    }
+  </style>
+</head>
+
+<body>
+<header style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+  <div>
+    <h1>ME Scenario Dashboard</h1>
+    <p class="sub">Interactive view of simulation results (Scenario × Description × Variable × Region × Sector × Year)</p>
+  </div>
+
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <a href="./ME_shocks_stacked.html"
+       style="
+         display:inline-flex;align-items:center;gap:8px;
+         padding:9px 12px;border-radius:10px;
+         background: var(--btnBg);
+         border:1px solid var(--btnBorder);
+         color: var(--text);
+         text-decoration:none;
+         font-weight:750;
+       ">
+      View stacked shocks (2026)
+    </a>
+  </div>
+</header>
+
+<main>
+  <div class="grid">
+
+    <!-- LEFT: Global Controls (Scenario + Regions only) -->
+    <div class="card">
+      <h2>Global controls</h2>
+      <div class="controls">
+        <div>
+          <label for="scenarioSel">Scenario</label>
+          <select id="scenarioSel"></select>
+        </div>
+
+        <div>
+          <label>Regions (default: all)</label>
+          <div class="btnRow" style="margin-bottom:8px;">
+            <button id="selectAllRegionsBtn" type="button">Select all</button>
+            <button id="clearRegionsBtn" type="button" class="secondary">Clear</button>
+          </div>
+          <div id="regionsBox" class="regionsBox"></div>
+        </div>
+
+        <div class="btnRow">
+          <button id="refreshBtn" type="button">Refresh charts</button>
+        </div>
+
+        <div class="status" id="statusBox">Loading data…</div>
+
+        <hr style="border:0;border-top:1px solid var(--border);margin:10px 0;">
+
+        <div class="status">
+          <div style="font-weight:800; color:var(--text); margin-bottom:6px;">Notes</div>
+          <div style="margin-bottom:6px;">
+            <b>Aggregation (Section 1):</b> For each year, we compute the <b>simple mean</b> of values across all sectors within each region
+            (separately for AVG/MIN/MAX).
+          </div>
+          <div>
+            <b>MIN/MAX display:</b> Optional shaded band shows MIN–MAX around the AVG line (time series) or as error bars (snapshots).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Charts -->
+    <div>
+
+      <!-- Section 1 -->
+      <div class="section card">
+        <div class="sectionHeader">
+          <div>
+            <h3>Section 1 — Time series (aggregated across sectors)</h3>
+            <div class="helpText">
+              Shows the trajectory of a selected variable over time for each selected region, where values are
+              averaged across all sectors within a region (simple mean).
+            </div>
+          </div>
+
+          <div class="controlsRow">
+            <div class="ctrl">
+              <label for="varSel1">Variable</label>
+              <select id="varSel1"></select>
+            </div>
+
+            <div class="ctrl">
+              <div class="labelSpacer"></div>
+              <label class="chkInlineAligned" title="AVG line with MIN–MAX shaded band per region">
+                <input id="showMinMaxTS1" type="checkbox" />
+                <span>Show MIN/MAX band</span>
+              </label>
+            </div>
+
+
+          </div>
+        </div>
+        <div class="chartBox">
+          <div class="chartTopBar">
+            <span class="pill" id="pill1">Scenario: — | Variable: —</span>
+          </div>
+          <div id="chart1" class="chart"></div>
+        </div>
+      </div>
+
+      <!-- Section 2 -->
+      <div class="section card">
+        <div class="sectionHeader">
+          <div>
+            <h3>Section 2 — Time series (sector-specific)</h3>
+            <div class="helpText">
+              Same as Section 1, but values are taken directly for a selected sector (no cross-sector aggregation).
+            </div>
+          </div>
+
+          <div class="controlsRow">
+            <div class="ctrl">
+              <label for="sectorSel2">Sector</label>
+              <select id="sectorSel2"></select>
+            </div>
+
+            <div class="ctrl">
+              <label for="varSel2">Variable</label>
+              <select id="varSel2"></select>
+            </div>
+
+            <div class="ctrl">
+              <div class="labelSpacer"></div>
+              <label class="chkInlineAligned" title="AVG line with MIN–MAX shaded band per region">
+                <input id="showMinMaxTS2" type="checkbox" />
+                <span>Show MIN/MAX band</span>
+              </label>
+            </div>
+
+
+          </div>
+        </div>
+
+        <div class="chartBox">
+          <div class="chartTopBar">
+            <span class="pill" id="pill2">Scenario: — | Sector: — | Variable: —</span>
+          </div>
+          <div id="chart2" class="chart"></div>
+        </div>
+      </div>
+
+      <!-- Snapshots (Dynamic) -->
+      <div class="section card">
+        <div class="sectionHeader">
+          <div>
+            <h3>Snapshots — Dynamic (add up to 5 years)</h3>
+            <div class="helpText">
+              Add snapshot charts for specific years. Bars show AVG by region for the selected sector; optionally display MIN–MAX as error bars.
+            </div>
+          </div>
+
+          <div class="controlsRow">
+            <div class="ctrl">
+              <label for="sectorSelSnap">Sector</label>
+              <select id="sectorSelSnap"></select>
+            </div>
+
+            <div class="ctrl">
+              <label for="varSelSnap">Variable</label>
+              <select id="varSelSnap"></select>
+            </div>
+
+            <div class="ctrl" style="min-width:140px;">
+              <label for="snapYearSel">Year</label>
+              <select id="snapYearSel"></select>
+            </div>
+
+            <div class="ctrl" style="min-width:140px;">
+              <div class="labelSpacer"></div>
+              <button id="addSnapBtn" type="button">Add snapshot</button>
+            </div>
+
+            <div class="ctrl" style="min-width:160px;">
+              <div class="labelSpacer"></div>
+              <label class="chkInlineAligned" title="Bars show AVG; error bars span MIN–MAX">
+                <input id="showMinMaxSnap" type="checkbox" />
+                <span>Show MIN/MAX</span>
+              </label>
+            </div>
+
+            <span class="pill" id="pillSnap">Scenario: — | Sector: — | Variable: —</span>
+          </div>
+        </div>
+
+        <div class="snapList" id="snapList"></div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+/**
+ * Expected CSV columns (case-sensitive):
+ * Scenario, Description, Variable, Unit, Region, Sector, Year, Value
+ */
+
+const DATA_PATH = "./data/SampleResults.csv";
+const SNAPSHOT_LIMIT = 5;
+
+// Global stores
+const meta = {
+  scenarios: new Set(),
+  descriptions: new Set(),
+  variables: new Set(),
+  unitsByVar: new Map(),
+  regions: new Set(),
+  sectors: new Set(),
+  years: new Set(),
+};
+
+// Aggregated (Section 1) accumulation: sum/count keyed by scenario|desc|var|region|year
+const aggSum = new Map();
+const aggCnt = new Map();
+
+// Raw lookup (Section 2 + snapshots): value keyed by scenario|desc|var|region|sector|year
+const rawVal = new Map();
+
+// Snapshot state
+let snapshotYears = [2026]; // default starting snapshot
+
+// Convenience
+const key1 = (sc, ds, va, rg, yr) => `${sc}||${ds}||${va}||${rg}||${yr}`;
+const key2 = (sc, ds, va, rg, se, yr) => `${sc}||${ds}||${va}||${rg}||${se}||${yr}`;
+
+function $(id){ return document.getElementById(id); }
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+function setStatus(msg){ $("statusBox").textContent = msg; }
+
+function sortAlpha(arr){
+  return arr.slice().sort((a,b)=> String(a).localeCompare(String(b)));
+}
+function sortNum(arr){
+  return arr.slice().sort((a,b)=> Number(a)-Number(b));
+}
+function safeNum(x){
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Regions: checkbox list */
+function getSelectedRegions(){
+  const checked = Array.from(document.querySelectorAll('#regionsBox input[type="checkbox"]:checked'));
+  return checked.map(cb => cb.value);
+}
+function setAllRegionsChecked(flag){
+  document.querySelectorAll('#regionsBox input[type="checkbox"]').forEach(cb => cb.checked = flag);
+}
+
+/** Build indices from parsed rows */
+function ingestRows(rows){
+  for (const r of rows){
+    const sc = (r.Scenario ?? "").trim();
+    const ds = (r.Description ?? "").trim();
+    const va = (r.Variable ?? "").trim();
+    const un = (r.Unit ?? "").trim();
+    const rg = (r.Region ?? "").trim();
+    const se = (r.Sector ?? "").trim();
+    const yr = safeNum(r.Year);
+    const val = safeNum(r.Value);
+
+    if (!sc || !ds || !va || !rg || !se || yr === null || val === null) continue;
+
+    meta.scenarios.add(sc);
+    meta.descriptions.add(ds);
+    meta.variables.add(va);
+    meta.regions.add(rg);
+    meta.sectors.add(se);
+    meta.years.add(yr);
+
+    // units by variable
+    if (!meta.unitsByVar.has(va)) meta.unitsByVar.set(va, un);
+
+    // raw storage
+    rawVal.set(key2(sc, ds, va, rg, se, yr), val);
+
+    // aggregation accumulators (mean across sectors)
+    const k = key1(sc, ds, va, rg, yr);
+    aggSum.set(k, (aggSum.get(k) ?? 0) + val);
+    aggCnt.set(k, (aggCnt.get(k) ?? 0) + 1);
+  }
+}
+
+function populateControls(){
+  // Scenario
+  const scenarios = sortAlpha(Array.from(meta.scenarios));
+  $("scenarioSel").innerHTML = scenarios.map(s => `<option value="${s}">${s}</option>`).join("");
+
+  // Variables
+  const variables = sortAlpha(Array.from(meta.variables));
+  const varOptions = variables.map(v => `<option value="${v}">${v}</option>`).join("");
+  $("varSel1").innerHTML = varOptions;
+  $("varSel2").innerHTML = varOptions;
+  $("varSelSnap").innerHTML = varOptions;
+
+  // Regions (checkbox list)
+  const regions = sortAlpha(Array.from(meta.regions));
+  $("regionsBox").innerHTML = regions.map(r => `
+    <label class="regionItem">
+      <input type="checkbox" value="${r}" checked />
+      <span>${r}</span>
+    </label>
+  `).join("");
+
+  // Sectors
+  const sectors = sortAlpha(Array.from(meta.sectors));
+  const secOptions = sectors.map(s => `<option value="${s}">${s}</option>`).join("");
+  $("sectorSel2").innerHTML = secOptions;
+  $("sectorSelSnap").innerHTML = secOptions;
+
+  // Years for snapshot add
+  const years = sortNum(Array.from(meta.years));
+  $("snapYearSel").innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join("");
+
+  // Defaults
+  if (scenarios.length) $("scenarioSel").value = scenarios[0];
+  if (variables.length){
+    $("varSel1").value = variables[0];
+    $("varSel2").value = variables[0];
+    $("varSelSnap").value = variables[0];
+  }
+  if (sectors.length){
+    $("sectorSel2").value = sectors[0];
+    $("sectorSelSnap").value = sectors[0];
+  }
+
+  // Initialize snapshot default year if available, else first year
+  const defaultYear = years.includes(2026) ? 2026 : (years[0] ?? 2026);
+  snapshotYears = [defaultYear];
+  $("snapYearSel").value = String(defaultYear);
+
+  $("showMinMaxTS1").checked = false;
+  $("showMinMaxTS2").checked = false;
+  $("showMinMaxSnap").checked = false;
+
+  renderSnapshotList(); // create initial snapshot card(s)
+}
+
+/** Plotly base layout (no internal chart title) */
+function baseLayout(yUnit){
+  return {
+    title: {text: ""},
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    margin: {l: 58, r: 18, t: 14, b: 52},
+    xaxis: {
+      gridcolor: cssVar('--plotGrid'),
+      zerolinecolor: cssVar('--plotZero'),
+      tickfont: {color: cssVar('--muted')}
+    },
+    yaxis: {
+      title: {text: yUnit || "", font:{color: cssVar('--muted'), size: 11}},
+      gridcolor: cssVar('--plotGrid'),
+      zerolinecolor: cssVar('--plotZero'),
+      tickfont: {color: cssVar('--muted')}
+    },
+    legend: {
+      font:{color: cssVar('--muted')},
+      bgcolor: "rgba(0,0,0,0)",
+      borderwidth: 0,
+      orientation: "h",
+      yanchor: "bottom",
+      y: 1.02,
+      xanchor: "left",
+      x: 0
+    },
+    hovermode: "x unified",
+    colorway: [cssVar('--c1'), cssVar('--c2'), cssVar('--c3'), cssVar('--c4'), cssVar('--c5'), cssVar('--c6'), cssVar('--c7'), cssVar('--c8')]
+  };
+}
+
+/** SECTION 1: Aggregated across sectors */
+function buildSection1(){
+  const sc = $("scenarioSel").value;
+  const va = $("varSel1").value;
+  const regions = getSelectedRegions();
+  const showBand = $("showMinMaxTS1").checked;
+
+  const years = sortNum(Array.from(meta.years));
+  const unit = meta.unitsByVar.get(va) || "";
+  const bandFill = cssVar('--bandFill');
+
+  const traces = [];
+
+  for (const rg of regions){
+    const yAVG = [];
+    const yMIN = [];
+    const yMAX = [];
+
+    for (const yr of years){
+      const kA = key1(sc, "AVG", va, rg, yr);
+      const sA = aggSum.get(kA), cA = aggCnt.get(kA);
+      yAVG.push((sA !== undefined && cA) ? (sA / cA) : null);
+
+      if (showBand){
+        const kMin = key1(sc, "MIN", va, rg, yr);
+        const sMin = aggSum.get(kMin), cMin = aggCnt.get(kMin);
+        yMIN.push((sMin !== undefined && cMin) ? (sMin / cMin) : null);
+
+        const kMax = key1(sc, "MAX", va, rg, yr);
+        const sMax = aggSum.get(kMax), cMax = aggCnt.get(kMax);
+        yMAX.push((sMax !== undefined && cMax) ? (sMax / cMax) : null);
+      }
+    }
+
+    if (showBand){
+      traces.push({
+        x: years, y: yMIN,
+        mode: "lines",
+        line: {width: 0},
+        hoverinfo: "skip",
+        showlegend: false,
+        legendgroup: rg,
+        name: `${rg} MIN`
+      });
+      traces.push({
+        x: years, y: yMAX,
+        mode: "lines",
+        line: {width: 0},
+        fill: "tonexty",
+        fillcolor: bandFill,
+        hoverinfo: "skip",
+        showlegend: false,
+        legendgroup: rg,
+        name: `${rg} MAX`
+      });
+    }
+
+    traces.push({
+      x: years, y: yAVG,
+      mode: "lines",
+      line: {width: 2},
+      name: rg,
+      legendgroup: rg,
+      hovertemplate: `<b>${rg}</b><br>Year=%{x}<br>AVG=%{y:.4f}<extra></extra>`
+    });
+  }
+
+  Plotly.react("chart1", traces, baseLayout(unit), {responsive:true, displayModeBar:true});
+  $("pill1").textContent = `Scenario: ${sc} | Variable: ${va}`;
+}
+
+/** SECTION 2: Sector-specific time series (always AVG + optional MIN/MAX band) */
+function buildSection2(){
+  const sc = $("scenarioSel").value;
+  const va = $("varSel2").value;
+  const se = $("sectorSel2").value;
+  const regions = getSelectedRegions();
+  const showBand = $("showMinMaxTS2").checked;
+
+  const years = sortNum(Array.from(meta.years));
+  const unit = meta.unitsByVar.get(va) || "";
+  const bandFill = cssVar('--bandFill');
+
+  const traces = [];
+
+  for (const rg of regions){
+    const yAVG = [];
+    const yMIN = [];
+    const yMAX = [];
+
+    for (const yr of years){
+      const vA = rawVal.get(key2(sc, "AVG", va, rg, se, yr));
+      yAVG.push(vA ?? null);
+
+      if (showBand){
+        const vMin = rawVal.get(key2(sc, "MIN", va, rg, se, yr));
+        const vMax = rawVal.get(key2(sc, "MAX", va, rg, se, yr));
+        yMIN.push(vMin ?? null);
+        yMAX.push(vMax ?? null);
+      }
+    }
+
+    if (showBand){
+      traces.push({
+        x: years, y: yMIN,
+        mode: "lines",
+        line: {width: 0},
+        hoverinfo: "skip",
+        showlegend: false,
+        legendgroup: rg,
+        name: `${rg} MIN`
+      });
+      traces.push({
+        x: years, y: yMAX,
+        mode: "lines",
+        line: {width: 0},
+        fill: "tonexty",
+        fillcolor: bandFill,
+        hoverinfo: "skip",
+        showlegend: false,
+        legendgroup: rg,
+        name: `${rg} MAX`
+      });
+    }
+
+    traces.push({
+      x: years, y: yAVG,
+      mode: "lines",
+      line: {width: 2},
+      name: rg,
+      legendgroup: rg,
+      hovertemplate: `<b>${rg}</b><br>Year=%{x}<br>AVG=%{y:.4f}<extra></extra>`
+    });
+  }
+
+  Plotly.react("chart2", traces, baseLayout(unit), {responsive:true, displayModeBar:true});
+  $("pill2").textContent = `Scenario: ${sc} | Sector: ${se} | Variable: ${va}`;
+}
+
+/** SNAPSHOT: bar chart for a given year (AVG bars + optional MIN/MAX error bars) */
+function buildSnapshot(divId, year){
+  const sc = $("scenarioSel").value;
+  const va = $("varSelSnap").value;
+  const se = $("sectorSelSnap").value;
+  const showMM = $("showMinMaxSnap").checked;
+
+  const regions = sortAlpha(Array.from(meta.regions));
+  const unit = meta.unitsByVar.get(va) || "";
+
+  const avg = [];
+  const errPlus = [];
+  const errMinus = [];
+
+  for (const rg of regions){
+    const vA = rawVal.get(key2(sc, "AVG", va, rg, se, year));
+    avg.push(vA ?? null);
+
+    if (showMM){
+      const vMin = rawVal.get(key2(sc, "MIN", va, rg, se, year));
+      const vMax = rawVal.get(key2(sc, "MAX", va, rg, se, year));
+      const a = (vA ?? null);
+      if (a === null || vMin === undefined || vMax === undefined){
+        errPlus.push(0);
+        errMinus.push(0);
+      } else {
+        errPlus.push(Math.max(0, vMax - a));
+        errMinus.push(Math.max(0, a - vMin));
+      }
+    }
+  }
+
+  const trace = {
+    type: "bar",
+    x: regions,
+    y: avg,
+    name: "AVG",
+    hovertemplate: `<b>%{x}</b><br>Year=${year}<br>AVG=%{y:.4f}<extra></extra>`
+  };
+
+  if (showMM){
+    trace.error_y = {
+      type: "data",
+      array: errPlus,
+      arrayminus: errMinus,
+      visible: true,
+      thickness: 1.2,
+      width: 3
+    };
+    trace.hovertemplate = `<b>%{x}</b><br>Year=${year}<br>AVG=%{y:.4f}<br>(error bars = MIN–MAX)<extra></extra>`;
+  }
+
+  const layout = baseLayout(unit);
+  layout.hovermode = "closest";
+  layout.margin.t = 14;
+  layout.xaxis.tickangle = -35;
+  layout.xaxis.automargin = true;
+
+  Plotly.react(divId, [trace], layout, {responsive:true, displayModeBar:true});
+}
+
+/** Snapshot pill */
+function updateSnapshotPill(){
+  const sc = $("scenarioSel").value;
+  const va = $("varSelSnap").value;
+  const se = $("sectorSelSnap").value;
+  $("pillSnap").textContent = `Scenario: ${sc} | Sector: ${se} | Variable: ${va} | Snapshots: ${snapshotYears.join(", ")}`;
+}
+
+/** Render snapshot list DOM from snapshotYears */
+function renderSnapshotList(){
+  const list = $("snapList");
+  list.innerHTML = "";
+
+  snapshotYears.forEach((yr) => {
+    const card = document.createElement("div");
+    card.className = "snapCard";
+
+    const header = document.createElement("div");
+    header.className = "snapHeader";
+
+    const title = document.createElement("div");
+    title.className = "snapTitle";
+    title.textContent = `Snapshot — Year ${yr}`;
+
+    const actions = document.createElement("div");
+    actions.className = "snapActions";
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "danger";
+    removeBtn.style.width = "auto";
+    removeBtn.style.padding = "8px 10px";
+    removeBtn.textContent = "Remove";
+    removeBtn.addEventListener("click", () => {
+      snapshotYears = snapshotYears.filter(y => y !== yr);
+      renderSnapshotList();
+      refreshSnapshots();
+      updateSnapshotPill();
+    });
+
+    actions.appendChild(removeBtn);
+    header.appendChild(title);
+    header.appendChild(actions);
+
+    const chartDiv = document.createElement("div");
+    chartDiv.id = `snap_${yr}`;
+    chartDiv.className = "snapChart";
+
+    card.appendChild(header);
+    card.appendChild(chartDiv);
+    list.appendChild(card);
+  });
+}
+
+/** Refresh only snapshots */
+function refreshSnapshots(){
+  snapshotYears.forEach(yr => buildSnapshot(`snap_${yr}`, yr));
+}
+
+/** Main refresh */
+function refreshAll(){
+  buildSection1();
+  buildSection2();
+  refreshSnapshots();
+  updateSnapshotPill();
+}
+
+/** Add snapshot year */
+function addSnapshotYear(){
+  const yr = Number($("snapYearSel").value);
+
+  if (!Number.isFinite(yr)) return;
+
+  if (snapshotYears.includes(yr)) {
+    // already present; just scroll it into view
+    const el = document.getElementById(`snap_${yr}`);
+    if (el) el.scrollIntoView({behavior:"smooth", block:"center"});
+    return;
+  }
+
+  if (snapshotYears.length >= SNAPSHOT_LIMIT){
+    alert(`Snapshot limit reached (${SNAPSHOT_LIMIT}). Remove one before adding another.`);
+    return;
+  }
+
+  snapshotYears = snapshotYears.concat([yr]).sort((a,b)=>a-b);
+  renderSnapshotList();
+  refreshSnapshots();
+  updateSnapshotPill();
+}
+
+/** Wire UI events */
+function bindUI(){
+  $("selectAllRegionsBtn").addEventListener("click", () => {
+    setAllRegionsChecked(true);
+    refreshAll();
+  });
+  $("clearRegionsBtn").addEventListener("click", () => {
+    setAllRegionsChecked(false);
+    refreshAll();
+  });
+
+  $("regionsBox").addEventListener("change", () => refreshAll());
+
+  $("refreshBtn").addEventListener("click", () => refreshAll());
+
+  // Auto-refresh controls
+  const autoRefreshIds = [
+    "scenarioSel","varSel1","showMinMaxTS1",
+    "sectorSel2","varSel2","showMinMaxTS2",
+    "sectorSelSnap","varSelSnap","showMinMaxSnap"
+  ];
+  for (const id of autoRefreshIds){
+    $(id).addEventListener("change", () => refreshAll());
+  }
+
+  $("addSnapBtn").addEventListener("click", () => addSnapshotYear());
+}
+
+/** Load CSV (streaming for speed, no worker to avoid Invalid URL) */
+function loadData(){
+  setStatus(`Loading CSV from: ${DATA_PATH}`);
+  window.__rowCount = 0;
+
+  Papa.parse(DATA_PATH, {
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    worker: false,
+    chunkSize: 1024 * 1024, // 1MB chunks
+    chunk: function(results) {
+      const rows = results.data || [];
+      ingestRows(rows);
+      window.__rowCount += rows.length;
+
+      if (window.__rowCount % 50000 < rows.length) {
+        setStatus(`Parsing… ${window.__rowCount.toLocaleString()} rows`);
+      }
+    },
+    complete: function() {
+      const scenarios = meta.scenarios.size, vars = meta.variables.size, regs = meta.regions.size, secs = meta.sectors.size;
+      const yrs = meta.years.size, desc = meta.descriptions.size;
+
+      setStatus(`Loaded. Scenarios=${scenarios}, Descriptions=${desc}, Variables=${vars}, Regions=${regs}, Sectors=${secs}, Years=${yrs}.`);
+
+      populateControls();
+      bindUI();
+      refreshAll();
+    },
+    error: function(err){
+      console.error(err);
+      setStatus("Failed to load CSV. Check Live Server path and Network tab for SampleResults.csv (status should be 200).");
+    }
+  });
+}
+
+// Boot
+loadData();
+</script>
+</body>
+</html>

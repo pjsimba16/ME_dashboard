@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Shocks Dashboard — Stacked Bars (2026)</title>
+
+  <!-- Plotly -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <!-- PapaParse -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121a33;
+      --panel2:#0f1730;
+      --text:#e9ecf5;
+      --muted:#aab2d5;
+      --border:rgba(255,255,255,.10);
+      --accent:#7aa2ff;
+
+      --plotGrid: rgba(255,255,255,0.08);
+      --plotZero: rgba(255,255,255,0.10);
+      --btnBg: rgba(122,162,255,0.22);
+      --btnBgHover: rgba(122,162,255,0.30);
+      --btnBorder: rgba(122,162,255,0.55);
+
+      /* colorway for scenarios */
+      --c1:#7aa2ff;
+      --c2:#ffb86b;
+      --c3:#55d7b7;
+      --c4:#ff6b8b;
+      --c5:#b58bff;
+      --c6:#ffd36b;
+      --c7:#5fb3ff;
+      --c8:#9be35a;
+    }
+
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: linear-gradient(180deg, #070b16, var(--bg));
+      color:var(--text);
+    }
+    header{
+      padding:16px 18px;
+      border-bottom:1px solid var(--border);
+      background: rgba(0,0,0,.2);
+      position: sticky;
+      top:0;
+      backdrop-filter: blur(8px);
+      z-index: 10;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    h1{margin:0 0 6px 0; font-size:18px; font-weight:800;}
+    .sub{margin:0; color:var(--muted); font-size:12px; line-height:1.35;}
+    main{max-width:1400px; margin:0 auto; padding:18px;}
+
+    .topActions{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    a.btn{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:9px 12px;
+      border-radius:10px;
+      background: var(--btnBg);
+      border:1px solid var(--btnBorder);
+      color: var(--text);
+      text-decoration:none;
+      font-weight:700;
+      transition:.12s ease;
+      white-space:nowrap;
+    }
+    a.btn:hover{ background: var(--btnBgHover); }
+    .status{
+      color: var(--muted);
+      font-size:12px;
+    }
+
+    .controls{
+      display:grid;
+      grid-template-columns: 220px 220px 1fr;
+      gap:10px;
+      align-items:end;
+      margin-bottom:14px;
+    }
+    label{font-size:12px; color:var(--muted); display:block; margin-bottom:6px;}
+    select, button{
+      width:100%;
+      border:1px solid var(--border);
+      background: rgba(15,23,48,.8);
+      color:var(--text);
+      border-radius:10px;
+      padding:9px 10px;
+      outline:none;
+    }
+    button{
+      cursor:pointer;
+      transition:.12s ease;
+      background: var(--btnBg);
+      border-color: var(--btnBorder);
+      font-weight: 750;
+    }
+    button:hover{ background: var(--btnBgHover); }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:14px;
+    }
+    .card{
+      background: rgba(18,26,51,.9);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px;
+      box-shadow: 0 12px 28px rgba(0,0,0,.25);
+    }
+    .cardHeader{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:8px;
+    }
+    .cardTitle{
+      font-weight:850;
+      font-size:13px;
+    }
+    .pill{
+      font-size:11px;
+      color:var(--muted);
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:6px 10px;
+      background: rgba(0,0,0,.15);
+      white-space:nowrap;
+    }
+    .chart{
+      height:380px;
+      border-radius:12px;
+      background: rgba(15,23,48,.55);
+      border:1px solid var(--border);
+      padding:8px;
+    }
+
+    @media (max-width: 1100px){
+      .grid{grid-template-columns:1fr;}
+      .chart{height:360px;}
+      .controls{grid-template-columns: 1fr 1fr; }
+      .controls .wide{grid-column: 1 / -1;}
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <div>
+    <h1>Shocks Dashboard — Stacked Bars (2026)</h1>
+    <p class="sub">
+      12 sector charts (a01–a12). Each chart: Regions on the x-axis; Scenarios stacked (relative stacking) using the 2026 values.
+      Negative values stack downward; positive values stack upward.
+    </p>
+  </div>
+
+  <div class="topActions">
+    <a class="btn" href="./ME_scenario_dashboard.html">← Back to main dashboard</a>
+    <div class="status" id="status">Loading…</div>
+  </div>
+</header>
+
+<main>
+  <div class="controls">
+    <div>
+      <label for="yearSel">Year</label>
+      <select id="yearSel">
+        <option value="2026" selected>2026</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="scenarioOrderSel">Scenario order</label>
+      <select id="scenarioOrderSel"></select>
+    </div>
+
+    <div class="wide">
+      <button id="refreshBtn" type="button">Refresh charts</button>
+    </div>
+  </div>
+
+  <div class="grid" id="chartsGrid"></div>
+</main>
+
+<script>
+  const DATA_PATH = "./data/Shocks_Dashboard.csv";
+
+  // Parsed structure:
+  // data[sector][region][scenario] = value
+  const store = new Map(); // sector -> (region -> (scenario -> value))
+  const sectors = new Set();
+  const regions = new Set();
+  const scenarios = new Set();
+
+  function $(id){ return document.getElementById(id); }
+  function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function setStatus(msg){ $("status").textContent = msg; }
+
+  function sortAlpha(arr){ return arr.slice().sort((a,b)=> String(a).localeCompare(String(b))); }
+  function safeNum(x){ const n = Number(x); return Number.isFinite(n) ? n : null; }
+
+  function parseName(nameStr){
+    // expected: SHY(a01,ADV)
+    // sector=a01, region=ADV
+    const m = String(nameStr || "").match(/\(([^,]+),([^)]+)\)/);
+    if (!m) return null;
+    return { sector: m[1].trim(), region: m[2].trim() };
+  }
+
+  function baseLayout(){
+    return {
+      title: {text:""},
+      paper_bgcolor: "rgba(0,0,0,0)",
+      plot_bgcolor: "rgba(0,0,0,0)",
+      margin: {l: 58, r: 18, t: 10, b: 60},
+      xaxis: {
+        gridcolor: cssVar('--plotGrid'),
+        zerolinecolor: cssVar('--plotZero'),
+        tickfont: {color: cssVar('--muted')},
+        tickangle: -35,
+        automargin: true,
+      },
+      yaxis: {
+        gridcolor: cssVar('--plotGrid'),
+        zerolinecolor: cssVar('--plotZero'),
+        tickfont: {color: cssVar('--muted')},
+      },
+      legend: {
+        font:{color: cssVar('--muted')},
+        bgcolor: "rgba(0,0,0,0)",
+        borderwidth: 0,
+        orientation: "h",
+        yanchor: "bottom",
+        y: 1.02,
+        xanchor: "left",
+        x: 0
+      },
+      barmode: "relative",
+      hovermode: "closest",
+      colorway: [cssVar('--c1'), cssVar('--c2'), cssVar('--c3'), cssVar('--c4'), cssVar('--c5'), cssVar('--c6'), cssVar('--c7'), cssVar('--c8')]
+    };
+  }
+
+  function ingestRows(rows){
+    for (const r of rows){
+      const sc = String(r.Scenario ?? "").trim();
+      const nm = r.name;
+      const val = safeNum(r["2026"]);
+      if (!sc || !nm || val === null) continue;
+
+      const parsed = parseName(nm);
+      if (!parsed) continue;
+
+      const { sector, region } = parsed;
+
+      scenarios.add(sc);
+      sectors.add(sector);
+      regions.add(region);
+
+      if (!store.has(sector)) store.set(sector, new Map());
+      const byRegion = store.get(sector);
+      if (!byRegion.has(region)) byRegion.set(region, new Map());
+      byRegion.get(region).set(sc, val);
+    }
+  }
+
+  function renderScenOrderControl(){
+    const scs = sortAlpha(Array.from(scenarios));
+    // Default order = alphabetical
+    $("scenarioOrderSel").innerHTML = [
+      `<option value="alpha" selected>Alphabetical</option>`,
+      `<option value="as_is">As in file (if stable)</option>`
+    ].join("");
+  }
+
+  function ensureChartCards(){
+    const grid = $("chartsGrid");
+    grid.innerHTML = "";
+    const secList = sortAlpha(Array.from(sectors));
+
+    for (const sec of secList){
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const header = document.createElement("div");
+      header.className = "cardHeader";
+
+      const title = document.createElement("div");
+      title.className = "cardTitle";
+      title.textContent = `Sector ${sec}`;
+
+      const pill = document.createElement("div");
+      pill.className = "pill";
+      pill.textContent = "Stacked by scenario";
+
+      header.appendChild(title);
+      header.appendChild(pill);
+
+      const chart = document.createElement("div");
+      chart.className = "chart";
+      chart.id = `chart_${sec}`;
+
+      card.appendChild(header);
+      card.appendChild(chart);
+      grid.appendChild(card);
+    }
+  }
+
+  function getScenarioOrder(){
+    const mode = $("scenarioOrderSel").value;
+    const scList = Array.from(scenarios);
+    if (mode === "alpha") return sortAlpha(scList);
+    // "as_is" fallback: keep insertion order (Set preserves insertion order)
+    return scList;
+  }
+
+  function buildSectorChart(sec){
+    const byRegion = store.get(sec) || new Map();
+    const regList = sortAlpha(Array.from(regions));
+    const scList = getScenarioOrder();
+
+    const traces = scList.map(sc => {
+      const y = regList.map(rg => {
+        const v = byRegion.get(rg)?.get(sc);
+        return (v === undefined) ? 0 : v;
+      });
+      return {
+        type: "bar",
+        name: sc,
+        x: regList,
+        y,
+        hovertemplate: `<b>%{x}</b><br>Scenario=${sc}<br>Value=%{y:.4f}<extra></extra>`
+      };
+    });
+
+    Plotly.react(`chart_${sec}`, traces, baseLayout(), {responsive:true, displayModeBar:true});
+  }
+
+  function refreshAll(){
+    const secList = sortAlpha(Array.from(sectors));
+    for (const sec of secList) buildSectorChart(sec);
+    setStatus(`Rendered ${secList.length} sector charts.`);
+  }
+
+  function bindUI(){
+    $("refreshBtn").addEventListener("click", refreshAll);
+    $("scenarioOrderSel").addEventListener("change", refreshAll);
+  }
+
+  function loadData(){
+    setStatus(`Loading CSV from: ${DATA_PATH}`);
+    Papa.parse(DATA_PATH, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      worker: false,
+      chunkSize: 1024 * 1024,
+      chunk: function(results){
+        ingestRows(results.data || []);
+      },
+      complete: function(){
+        setStatus(`Loaded. Scenarios=${scenarios.size}, Sectors=${sectors.size}, Regions=${regions.size}.`);
+        renderScenOrderControl();
+        ensureChartCards();
+        bindUI();
+        refreshAll();
+      },
+      error: function(err){
+        console.error(err);
+        setStatus("Failed to load CSV. Check path ./data/Shocks_Dashboard.csv and Live Server.");
+      }
+    });
+  }
+
+  loadData();
+</script>
+</body>
+</html>
